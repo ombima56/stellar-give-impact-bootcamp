@@ -12,8 +12,12 @@ impl Bills {
         }
     }
 
-    fn add(&mut self, name: String, amount: f64) {
+    fn add(&mut self, name: String, amount: f64) -> bool {
+        if self.inner.contains_key(&name) {
+            return false;
+        }
         self.inner.insert(name, amount);
+        true
     }
 
     fn remove(&mut self, name: &str) -> bool {
@@ -33,7 +37,9 @@ impl Bills {
         if self.inner.is_empty() {
             println!("No bills found.");
         } else {
-            for (name, amount) in &self.inner {
+            let mut bills: Vec<(&String, &f64)> = self.inner.iter().collect();
+            bills.sort_by_key(|(name, _)| name.to_lowercase());
+            for (name, amount) in bills {
                 println!("  {} - ${:.2}", name, amount);
             }
         }
@@ -41,15 +47,23 @@ impl Bills {
 }
 
 fn get_input(prompt: &str) -> String {
-    println!("{}", prompt);
+    if !prompt.is_empty() {
+        println!("{}", prompt);
+    }
     let mut input = String::new();
     io::stdin().read_line(&mut input).expect("Failed to read input");
     input.trim().to_string()
 }
 
 fn get_amount(prompt: &str) -> Option<f64> {
-    let input = get_input(prompt);
-    input.parse::<f64>().ok()
+    loop {
+        let input = get_input(prompt);
+        match input.parse::<f64>() {
+            Ok(amount) if amount > 0.0 => return Some(amount),
+            Ok(_) => println!("Amount must be greater than zero. Try again:"),
+            Err(_) => println!("\"{}\" is not a valid number. Try again:", input),
+        }
+    }
 }
 
 fn add_bill(bills: &mut Bills) {
@@ -58,12 +72,11 @@ fn add_bill(bills: &mut Bills) {
         println!("Name cannot be empty.");
         return;
     }
-    match get_amount("Enter amount:") {
-        Some(amount) => {
-            bills.add(name, amount);
-            println!("Bill added.");
-        }
-        None => println!("Invalid amount."),
+    let amount = get_amount("Enter amount:");
+    if bills.add(name.clone(), amount.unwrap()) {
+        println!("Bill added.");
+    } else {
+        println!("A bill named \"{}\" already exists.", name);
     }
 }
 
@@ -73,22 +86,18 @@ fn remove_bill(bills: &mut Bills) {
     if bills.remove(&name) {
         println!("Bill removed.");
     } else {
-        println!("Bill not found.");
+        println!("Bill \"{}\" not found.", name);
     }
 }
 
 fn edit_bill(bills: &mut Bills) {
     bills.view();
     let name = get_input("Enter bill name to edit:");
-    match get_amount("Enter new amount:") {
-        Some(amount) => {
-            if bills.update(&name, amount) {
-                println!("Bill updated.");
-            } else {
-                println!("Bill not found.");
-            }
-        }
-        None => println!("Invalid amount."),
+    let amount = get_amount("Enter new amount:");
+    if bills.update(&name, amount.unwrap()) {
+        println!("Bill updated.");
+    } else {
+        println!("Bill \"{}\" not found.", name);
     }
 }
 
